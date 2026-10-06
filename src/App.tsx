@@ -108,7 +108,23 @@ function LoginScreen({users,onLogin}:{users:SystemUser[];onLogin:(u:SystemUser)=
 function App(){
  const [section,setSection]=useState<Section>('dashboard')
  const [systemUsers,setSystemUsers]=useState<SystemUser[]>(()=>read<SystemUser[]>('hr_system_users',defaultSystemUsers))
- const defaultOrg={companies:Array.from({length:9},(_,i)=>'شركة '+(i+1)),sectors:Array.from({length:5},(_,i)=>'قطاع '+(i+1)),engineerings:Array.from({length:9},(_,i)=>'هندسة '+(i+1)),departments:['الموارد البشرية','الشؤون المالية','التشغيل والصيانة','الشبكات','المحصلين','الخدمات الطبية'],subDepartments:['شؤون العاملين','الحضور والانصراف','الخدمات الطبية'],jobs:['محصل','فني ورادى','فني كهرباء','فني صيانة','إداري','مراجع تسويات']};const [org,setOrg]=useState(()=>read('hr_org_structure',defaultOrg));
+ const defaultOrg={companies:Array.from({length:9},(_,i)=>'شركة '+(i+1)),sectors:Array.from({length:5},(_,i)=>'قطاع '+(i+1)),engineerings:Array.from({length:9},(_,i)=>'هندسة '+(i+1)),departments:['الموارد البشرية','الشؤون المالية','التشغيل والصيانة','الشبكات','المحصلين','الخدمات الطبية'],subDepartments:['شؤون العاملين','الحضور والانصراف','الخدمات الطبية'],jobs:['محصل','فني ورادى','فني كهرباء','فني صيانة','إداري','مراجع تسويات']};function normalizeOrgStructure(raw:any){
+ const base=raw&&typeof raw==='object'?raw:{};
+ const out:any={...base,parents:{...(base.parents||{})}};
+ const levels=['companies','sectors','engineerings','departments','subDepartments','jobs'];
+ levels.forEach((level,i)=>{
+   if(!Array.isArray(out[level]))out[level]=[];
+   if(i===0)return;
+   if(!out.parents[level])out.parents[level]={};
+   const parentLevel=levels[i-1];
+   const parentList=Array.isArray(out[parentLevel])?out[parentLevel]:[];
+   out[level].forEach((item:string,idx:number)=>{
+     if(out.parents[level][item]===undefined && parentList.length) out.parents[level][item]=parentList[idx%parentList.length];
+   });
+ });
+ return out;
+}
+const [org,setOrg]=useState(()=>normalizeOrgStructure(read('hr_org_structure',defaultOrg)));
  const [generalConfig,setGeneralConfig]=useState<GeneralConfig>(()=>read('hr_general_config',defaultGeneralConfig));
  const [currentUser,setCurrentUser]=useState<SystemUser|null>(()=>read<SystemUser|null>('hr_session_user',null))
  const [employees,setEmployees]=useState<Employee[]>(()=>{const saved=read<Employee[]>('hr_employees',[]);const rows=saved.length?saved:defaultEmployees;return rows.map(e=>{const p=personnelData[e.code]||{};const nationalId=e.nationalId||p.nationalId;const birthDate=e.birthDate||birthDateFromNationalId(nationalId);return {...e,department:normalizeDepartment(e.department),job:e.job||p.job||'',grade:e.grade||p.grade||'',phone:e.phone||p.phone||'',nationalId,birthDate}})})
@@ -269,9 +285,12 @@ function Organization({org,setOrg,employees}:{org:any;setOrg:Dispatch<SetStateAc
    ?list.filter((x:string)=>(parents[type]||{})[x]===parentValue)
    :list.filter((x:string)=>type==='companies'||!(parents[type]||{})[x]);
  const filteredEmployees=employees.filter(e=>(e.name+' '+e.code+' '+e.department+' '+e.job+' '+(e.subDepartment||'')).toLowerCase().includes(q.toLowerCase()));
+ const employeeMatches=(x:string)=>filteredEmployees.some(e=>[e.company,e.sector,e.engineering,e.department,e.subDepartment,e.job].includes(x));
 
  function TreeLevel({t,parent}:{t:string;parent?:string}){
-   const items=(Array.isArray(org?.[t])?org[t]:[]).filter((x:string)=>!parent || (org?.parents?.[t]||{})[x]===parent);
+   const rawItems=Array.isArray(org?.[t])?org[t]:[];
+   const items=rawItems.filter((x:string)=>!parent || (org?.parents?.[t]||{})[x]===parent);
+
    if(!items.length)return null;
    const nt=nextType(t);
    return <div className="org-tree-level">{items.map((x:string)=><div className="org-node" key={t+'-'+x}>
@@ -288,7 +307,7 @@ function Organization({org,setOrg,employees}:{org:any;setOrg:Dispatch<SetStateAc
    </div>
  </section>
  {view==='tree'
-   ?<section className="panel"><div className="org-tree"><TreeLevel t="companies"/>{filteredEmployees.length===0&&q&&<div className="table-empty">لا توجد نتائج للبحث.</div>}</div></section>
+   ?<section className="panel"><div className="org-tree"><TreeLevel t="companies"/>{q&&filteredEmployees.length===0&&<div className="table-empty">لا توجد نتائج للبحث.</div>}</div></section>
    :<section className="panel">
       <div className="toolbar">
         <select value={type} onChange={e=>{setType(e.target.value);setParentValue('');setEditing('')}}>{typeOrder.map(k=><option key={k} value={k}>{icons[k]} {labels[k]}</option>)}</select>
