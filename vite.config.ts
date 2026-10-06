@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/github-progect/' : '/',
+  base: command === 'build' ? '/hrnewcopy/' : '/',
   server: {
     host: '127.0.0.1',
     port: 5173,
