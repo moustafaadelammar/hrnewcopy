@@ -110,17 +110,19 @@ function App(){
  const [systemUsers,setSystemUsers]=useState<SystemUser[]>(()=>read<SystemUser[]>('hr_system_users',defaultSystemUsers))
  const defaultOrg={companies:Array.from({length:9},(_,i)=>'شركة '+(i+1)),sectors:Array.from({length:5},(_,i)=>'قطاع '+(i+1)),engineerings:Array.from({length:9},(_,i)=>'هندسة '+(i+1)),departments:['الموارد البشرية','الشؤون المالية','التشغيل والصيانة','الشبكات','المحصلين','الخدمات الطبية'],subDepartments:['شؤون العاملين','الحضور والانصراف','الخدمات الطبية'],jobs:['محصل','فني ورادى','فني كهرباء','فني صيانة','إداري','مراجع تسويات']};function normalizeOrgStructure(raw:any){
  const base=raw&&typeof raw==='object'?raw:{};
- const out:any={...base,parents:{...(base.parents||{})}};
  const levels=['companies','sectors','engineerings','departments','subDepartments','jobs'];
+ const out:any={...base,parents:{...(base.parents||{})}};
  levels.forEach((level,i)=>{
    if(!Array.isArray(out[level]))out[level]=[];
    if(i===0)return;
-   if(!out.parents[level])out.parents[level]={};
-   const parentLevel=levels[i-1];
-   const parentList=Array.isArray(out[parentLevel])?out[parentLevel]:[];
-   out[level].forEach((item:string,idx:number)=>{
-     if(out.parents[level][item]===undefined && parentList.length) out.parents[level][item]=parentList[idx%parentList.length];
+   const pLevel=levels[i-1];
+   const pSet=new Set(out[pLevel]);
+   const old=out.parents[level]&&typeof out.parents[level]==='object'?out.parents[level]:{};
+   const clean:any={};
+   out[level].forEach((item:string)=>{
+     if(old[item]&&pSet.has(old[item]))clean[item]=old[item];
    });
+   out.parents[level]=clean;
  });
  return out;
 }
@@ -135,7 +137,41 @@ const [org,setOrg]=useState(()=>normalizeOrgStructure(read('hr_org_structure',de
 }
 function ageFromBirthDate(v?:string){if(!v)return '';const d=new Date(v+'T00:00:00');if(Number.isNaN(d.getTime()))return '';const n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return String(Math.max(0,a))}
 type FormEmployee={code:string;name:string;department:string;job:string;grade:string;status:string;company:string;sector:string;engineering:string;subDepartment:string;phone:string;nationalId:string;birthDate:string;hireDate:string;qualification:string;socialStatus:string;address:string;notes:string;photo:string;spouseName:string;marriageDate:string;children:string}
-function FormEmployee({form,setForm,org}:{form:FormEmployee;setForm:Dispatch<SetStateAction<FormEmployee>>;org:any}){const generalConfig=read<GeneralConfig>('hr_general_config',defaultGeneralConfig);const set=(k:keyof FormEmployee,v:string)=>setForm(x=>({...x,[k]:v}));const pickPhoto=(f?:File)=>{if(!f)return;const r=new FileReader();r.onload=()=>set('photo',String(r.result||''));r.readAsDataURL(f)};return <div className="form-grid"><div className="employee-form-top full"><div>{form.photo?<img className="employee-photo large" src={form.photo} alt=""/>:<div className="employee-photo large placeholder">👤</div>}<input type="file" accept="image/*" onChange={e=>pickPhoto(e.target.files?.[0])}/></div></div><label>الرقم الوظيفي<input value={form.code} onChange={e=>set('code',e.target.value)}/></label><label>اسم الموظف<input value={form.name} onChange={e=>set('name',e.target.value)}/></label><label>الشركة<select value={form.company} onChange={e=>set('company',e.target.value)}>{org.companies.map((x:string)=><option key={x}>{x}</option>)}</select></label><label>القطاع<select value={form.sector} onChange={e=>set('sector',e.target.value)}>{org.sectors.map((x:string)=><option key={x}>{x}</option>)}</select></label><label>الهندسة<select value={form.engineering} onChange={e=>set('engineering',e.target.value)}>{org.engineerings.map((x:string)=><option key={x}>{x}</option>)}</select></label><label>القسم<select value={form.department} onChange={e=>set('department',e.target.value)}>{org.departments.map((x:string)=><option key={x}>{x}</option>)}</select></label><label>القسم الفرعي<select value={form.subDepartment} onChange={e=>set('subDepartment',e.target.value)}><option value="">بدون قسم فرعي</option>{org.subDepartments.map((x:string)=><option key={x}>{x}</option>)}</select></label><label>الوظيفة<select value={form.job} onChange={e=>set('job',e.target.value)}><option value="">اختر الوظيفة</option>{org.jobs.map((x:string)=><option key={x}>{x}</option>)}</select></label><label>الدرجة<input value={form.grade} onChange={e=>set('grade',e.target.value)}/></label><label>حالة الموظف<select value={form.status||generalConfig.statuses[0]||'في الخدمة'} onChange={e=>set('status',e.target.value)}>{generalConfig.statuses.map(x=><option key={x}>{x}</option>)}</select></label><label>رقم المحمول<input value={form.phone} onChange={e=>set('phone',e.target.value)}/></label><label>الرقم القومي<input value={form.nationalId} onChange={e=>set('nationalId',e.target.value)}/></label><label>تاريخ الميلاد<input type="date" value={form.birthDate} onChange={e=>set('birthDate',e.target.value)}/></label><label>تاريخ التعيين<input type="date" value={form.hireDate} onChange={e=>set('hireDate',e.target.value)}/></label><label>المؤهل<input value={form.qualification} onChange={e=>set('qualification',e.target.value)}/></label><label>الحالة الاجتماعية<input value={form.socialStatus} onChange={e=>set('socialStatus',e.target.value)}/></label><label className="full">العنوان<input value={form.address} onChange={e=>set('address',e.target.value)}/></label><label>الزوج/الزوجة<input value={form.spouseName} onChange={e=>set('spouseName',e.target.value)}/></label><label>تاريخ الزواج<input type="date" value={form.marriageDate} onChange={e=>set('marriageDate',e.target.value)}/></label><label className="full">الأبناء<textarea placeholder="مثال: أحمد — 2015، سارة — 2019" value={form.children} onChange={e=>set('children',e.target.value)}/></label><label className="full">ملاحظات<textarea value={form.notes} onChange={e=>set('notes',e.target.value)}/></label></div>}
+function FormEmployee({form,setForm,org}:{form:FormEmployee;setForm:Dispatch<SetStateAction<FormEmployee>>;org:any}){
+ const generalConfig=read<GeneralConfig>('hr_general_config',defaultGeneralConfig);
+ const set=(k:keyof FormEmployee,v:string)=>setForm(x=>({...x,[k]:v}));
+ const pickPhoto=(f?:File)=>{if(!f)return;const r=new FileReader();r.onload=()=>set('photo',String(r.result||''));r.readAsDataURL(f)};
+ const list=(k:string)=>Array.isArray(org?.[k])?org[k]:[];
+ const parentOf=(level:string,item:string)=>org?.parents?.[level]?.[item]||'';
+ const childrenOf=(level:string,parent:string)=>list(level).filter((x:string)=>parentOf(level,x)===parent);
+ const companies=list('companies');
+ const sectors=form.company?childrenOf('sectors',form.company):[];
+ const engineerings=form.sector?childrenOf('engineerings',form.sector):[];
+ const departments=form.engineering?childrenOf('departments',form.engineering):[];
+ const subDepartments=form.department?childrenOf('subDepartments',form.department):[];
+ const jobs=form.subDepartment?childrenOf('jobs',form.subDepartment):[];
+ const selected=(key:keyof FormEmployee,value:string)=>{
+   setForm(x=>{
+     const n:any={...x,[key]:value};
+     if(key==='company'){n.sector='';n.engineering='';n.department='';n.subDepartment='';n.job=''}
+     if(key==='sector'){n.engineering='';n.department='';n.subDepartment='';n.job=''}
+     if(key==='engineering'){n.department='';n.subDepartment='';n.job=''}
+     if(key==='department'){n.subDepartment='';n.job=''}
+     if(key==='subDepartment'){n.job=''}
+     return n;
+   });
+ };
+ const Select=({label,field,items,placeholder}:{label:string;field:keyof FormEmployee;items:string[];placeholder:string})=><label>{label}<select value={String(form[field]||'')} onChange={e=>selected(field,e.target.value)}><option value="">{placeholder}</option>{items.map(x=><option key={x} value={x}>{x}</option>)}</select></label>;
+ return <div className="form-grid"><div className="employee-form-top full"><div>{form.photo?<img className="employee-photo large" src={form.photo} alt=""/>:<div className="employee-photo large placeholder">👤</div>}<input type="file" accept="image/*" onChange={e=>pickPhoto(e.target.files?.[0])}/></div></div>
+ <label>الرقم الوظيفي<input value={form.code} onChange={e=>set('code',e.target.value)}/></label><label>اسم الموظف<input value={form.name} onChange={e=>set('name',e.target.value)}/></label>
+ <Select label="الشركة" field="company" items={companies} placeholder="اختر الشركة"/>
+ <Select label="القطاع" field="sector" items={sectors} placeholder={form.company?'اختر القطاع التابع للشركة':'اختر الشركة أولاً'}/>
+ <Select label="الهندسة" field="engineering" items={engineerings} placeholder={form.sector?'اختر الهندسة التابعة للقطاع':'اختر القطاع أولاً'}/>
+ <Select label="القسم" field="department" items={departments} placeholder={form.engineering?'اختر القسم التابع للهندسة':'اختر الهندسة أولاً'}/>
+ <Select label="القسم الفرعي" field="subDepartment" items={subDepartments} placeholder={form.department?'اختر القسم الفرعي التابع للقسم':'بدون قسم فرعي'}/>
+ <Select label="الوظيفة" field="job" items={jobs} placeholder={form.subDepartment?'اختر الوظيفة التابعة للقسم الفرعي':'اختر القسم الفرعي أولاً'}/>
+ <label>الدرجة<input value={form.grade} onChange={e=>set('grade',e.target.value)}/></label><label>حالة الموظف<select value={form.status||generalConfig.statuses[0]||'في الخدمة'} onChange={e=>set('status',e.target.value)}>{generalConfig.statuses.map(x=><option key={x}>{x}</option>)}</select></label><label>رقم المحمول<input value={form.phone} onChange={e=>set('phone',e.target.value)}/></label><label>الرقم القومي<input value={form.nationalId} onChange={e=>set('nationalId',e.target.value)}/></label><label>تاريخ الميلاد<input type="date" value={form.birthDate} onChange={e=>set('birthDate',e.target.value)}/></label><label>تاريخ التعيين<input type="date" value={form.hireDate} onChange={e=>set('hireDate',e.target.value)}/></label><label>المؤهل<input value={form.qualification} onChange={e=>set('qualification',e.target.value)}/></label><label>الحالة الاجتماعية<input value={form.socialStatus} onChange={e=>set('socialStatus',e.target.value)}/></label><label className="full">العنوان<input value={form.address} onChange={e=>set('address',e.target.value)}/></label><label className="full">بيانات إضافية<textarea value={form.notes} onChange={e=>set('notes',e.target.value)}/></label></div>
+}
 function Dashboard({employees,punches,leaves,setLeaves,balances,setBalances,treatmentDecisions,treatmentDispenses,settings,go,exceptions,missions,medicalLeaves}:{employees:Employee[];punches:Punch[];leaves:Leave[];setLeaves:Dispatch<SetStateAction<Leave[]>>;balances:LeaveBalance[];setBalances:Dispatch<SetStateAction<LeaveBalance[]>>;treatmentDecisions:TreatmentDecision[];treatmentDispenses:TreatmentDispense[];settings:any;go:(s:Section)=>void;exceptions:AttendanceException[];missions:Mission[];medicalLeaves:MedicalLeave[]}){const generalConfig=read<GeneralConfig>('hr_general_config',defaultGeneralConfig);const [detail,setDetail]=useState<'absent'|'late'|'early'|null>(null);const d=today(),dayPunches=punches.filter(x=>x.date===d),codes=new Set(dayPunches.map(x=>x.code)),start=String(settings.start||'08:00'),grace=Number(settings.grace||0),lateAfter=(()=>{const [h,m]=start.split(':').map(Number);const n=h*60+m+grace;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')})(),isCollector=(e:Employee)=>/محصل/.test(String(e.job||'')),isCollectorDay=[0,2,4].includes(new Date(d+'T00:00:00').getDay()),isLeave=(e:Employee)=>leaves.some(x=>x.employeeId===e.id&&x.status==='معتمدة'&&d>=x.from&&d<=x.to),isMission=(e:Employee)=>missions.some(x=>x.employeeId===e.id&&x.status==='معتمدة'&&d>=x.from&&d<=x.to),isSick=(e:Employee)=>medicalLeaves.some(x=>x.employeeId===e.id&&x.status!=='مرفوض'&&d>=x.from&&d<=x.to),hasException=(e:Employee)=>exceptions.some(x=>x.employeeId===e.id&&x.date===d),isCouncilTech=(e:Employee)=>/مجالس/.test(String(e.job||''))||/مجالس/.test(String(e.department||''))||/فني\s*ورادى|فنى\s*ورادى|عامل\s*ورادى|ورادى|ورادي/.test(String(e.job||''))||/فني\s*ورادى|فنى\s*ورادى|عامل\s*ورادى|ورادى|ورادي/.test(String(e.department||'')),isActive=(e:Employee)=>employeeIsActive(e,generalConfig),present=employees.filter(e=>{if(!isActive(e))return false;if(isLeave(e)||isMission(e)||isSick(e)||hasException(e))return false;if(isCollector(e))return isCollectorDay&&punches.filter(x=>x.code===e.code&&x.date===d).length>=2;if(isCouncilTech(e))return true;return punches.some(x=>x.code===e.code&&x.date===d)}).length,late=new Set(dayPunches.filter(x=>!isCollector(employees.find(e=>e.code===x.code)||({} as Employee))&&!isCouncilTech(employees.find(e=>e.code===x.code)||({} as Employee))&&x.time>lateAfter).map(x=>x.code)).size,approvedLeaves=leaves.filter(x=>x.status==='معتمدة'&&d>=x.from&&d<=x.to).length,pendingLeaves=leaves.filter(x=>x.status!=='معتمدة').length;const expectedActive=employees.filter(e=>isActive(e)&&!isLeave(e)&&!isMission(e)&&!isSick(e)&&!hasException(e)&&!(isCollector(e)&&!isCollectorDay));const absent=Math.max(0,expectedActive.length-present);const absenceList=employees.filter(e=>{if(!isActive(e)||isLeave(e)||isMission(e)||isSick(e)||hasException(e))return false;if(isCollector(e))return isCollectorDay&&punches.filter(x=>x.code===e.code&&x.date===d).length<2;return !isCouncilTech(e)&&!punches.some(x=>x.code===e.code&&x.date===d)}),lateList=dayPunches.filter(x=>{const e=employees.find(e=>e.code===x.code);return !!e&&!isCollector(e)&&x.time>lateAfter});const active=treatmentDecisions.filter(x=>x.status==='ساري'&&x.startDate<=d&&x.endDate>=d);const expired=treatmentDecisions.filter(x=>x.endDate<d&&x.status==='ساري');const expiring=treatmentDecisions.filter(x=>x.status==='ساري'&&x.endDate>=d&&x.endDate<=new Date(Date.now()+30*86400000).toISOString().slice(0,10));const month=d.slice(0,7);const missing=active.filter(x=>!treatmentDispenses.some(y=>y.decisionId===x.id&&y.month===month)).length;return <><section className="stats"><Stat icon="👥" label="إجمالي الموظفين" value={employees.length}/><Stat icon="✓" label="الحضور اليوم" value={present}/><Stat icon="✕" label="الغياب المتوقع" value={absent} onClick={()=>setDetail("absent")}/><Stat icon="⏱" label="المتأخرون" value={late} onClick={()=>setDetail("late")}/><Stat icon="🏖️" label="إجازات اليوم" value={approvedLeaves}/></section><section className="content-grid"><div className="panel"><div className="panel-header"><div><h2>ملخص حركة اليوم</h2><p>{d} — آخر تحديث من بيانات البصمة المحفوظة</p></div><button className="view-btn" onClick={()=>go('attendance')}>فتح الحضور</button></div><div className="medical-mini"><div><span>مسجل بصمة</span><strong>{dayPunches.length}</strong></div><div><span>موظفون حضروا</span><strong>{present}</strong></div><div><span>بصمة واحدة</span><strong>{[...codes].filter(code=>dayPunches.filter(x=>x.code===code).length===1).length}</strong></div><div><span>طلبات معلقة</span><strong>{pendingLeaves}</strong></div></div></div><div className="panel"><div className="panel-header"><div><h2>توزيع الموظفين</h2><p>حسب القسم</p></div></div><div className="medical-mini">{['فني','تجاري','نظم','إداري'].map(d=><div key={d}><span>{d}</span><strong>{employees.filter(e=>e.department===d).length}</strong></div>)}</div></div></section><section className="panel"><div className="panel-header"><div><h2>تنبيهات الخدمات الطبية</h2><p>متابعة قرارات العلاج والصرف الشهري</p></div><button className="view-btn" onClick={()=>go('medical')}>فتح الخدمات الطبية</button></div><div className="medical-mini"><div><span>قرارات منتهية</span><strong>{expired.length}</strong></div><div><span>تنتهي خلال 30 يوم</span><strong>{expiring.length}</strong></div><div><span>لم يصرف الشهر الحالي</span><strong>{missing}</strong></div><div><span>قرارات سارية</span><strong>{active.length}</strong></div></div></section><section className="quick-actions"><h2>إجراءات سريعة</h2><div className="actions"><button onClick={()=>go('employees')}>➕ إضافة موظف</button><button onClick={()=>go('attendance')}>📥 استيراد البصمة</button><button onClick={()=>go('leaves')}>🏖️ تسجيل إجازة</button><button onClick={()=>go('reports')}>📊 التقارير</button></div></section>{detail&&<Modal title={detail==='absent'?'تفاصيل الغياب اليوم':'تفاصيل التأخير اليوم'} close={()=>setDetail(null)}><TableWrap><table><thead><tr><th>الكود</th><th>الموظف</th><th>القسم</th><th>أول بصمة</th><th>آخر بصمة</th></tr></thead><tbody>{(detail==='absent'?absenceList:lateList.map(x=>employees.find(e=>e.code===x.code)).filter(Boolean)).map((x:any,i:number)=>{const e=x.e||x;const ps=dayPunches.filter(p=>p.code===e.code).sort((a,b)=>a.time.localeCompare(b.time));return <tr key={e.id+"-"+i}><td>{e.code}</td><td>{e.name}</td><td>{e.department}</td><td>{ps[0]?.time||'—'}</td><td>{ps[ps.length-1]?.time||'—'}</td></tr>})}</tbody></table></TableWrap></Modal>}</>}
 function Employees({org,generalConfig,employees,setEmployees,punches,leaves,missions,penalties,medicalFiles,medicalExams,medicalLeaves,treatmentDecisions,balances,settings,setPunches}:{org:any;employees:Employee[];setEmployees:Dispatch<SetStateAction<Employee[]>>;punches:Punch[];leaves:Leave[];missions:Mission[];penalties:Penalty[];medicalFiles:MedicalFile[];medicalExams:MedicalExam[];medicalLeaves:MedicalLeave[];treatmentDecisions:TreatmentDecision[];balances:LeaveBalance[];settings:any;setPunches:Dispatch<SetStateAction<Punch[]>>;generalConfig:GeneralConfig}){const [open,setOpen]=useState(false),[edit,setEdit]=useState<Employee|null>(null),[profile,setProfile]=useState<Employee|null>(null),[q,setQ]=useState(''),[dept,setDept]=useState('الكل'),[jobFilter,setJobFilter]=useState('الكل'),[statusFilter,setStatusFilter]=useState('الكل'),[gradeFilter,setGradeFilter]=useState('الكل'),[profileTab,setProfileTab]=useState('basic');const importRef=useRef<HTMLInputElement>(null);const empty={code:'',name:'',department:'فني',job:'',grade:'',status:'في الخدمة' as string,company:'شركة 1',sector:'قطاع 1',engineering:'هندسة 1',subDepartment:'',phone:'',nationalId:'',birthDate:'',hireDate:'',qualification:'',socialStatus:'',address:'',notes:'',photo:'',spouseName:'',marriageDate:'',children:''};const [form,setForm]=useState(empty);const jobs=[...new Set(employees.map(e=>e.job).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'ar')),grades=[...new Set(employees.map(e=>e.grade).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'ar')),statuses=[...new Set(employees.map(e=>e.status).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'ar'));const filtered=employees.filter(e=>(dept==='الكل'||e.department===dept)&&(jobFilter==='الكل'||e.job===jobFilter)&&(gradeFilter==='الكل'||e.grade===gradeFilter)&&(statusFilter==='الكل'||e.status===statusFilter)&&(e.name+' '+e.code+' '+e.department+' '+e.job+' '+(e.grade||'')+' '+(e.nationalId||'')).toLowerCase().includes(q.toLowerCase()));function save(){if(!form.name.trim())return alert('اكتب اسم الموظف');if(!form.code.trim())return alert('اكتب الرقم الوظيفي');if(employees.some(x=>x.code===form.code&&x.id!==(edit?.id||0)))return alert('الرقم الوظيفي مستخدم بالفعل لموظف آخر');const fixed={...form,birthDate:form.nationalId?birthDateFromNationalId(form.nationalId):form.birthDate};if(edit){if(form.code!==edit.code)setPunches(xs=>xs.map(p=>p.code===edit.code?{...p,code:form.code,name:form.name}:p));setEmployees(xs=>xs.map(x=>x.id===edit.id?{...edit,...fixed}:x))}else setEmployees(xs=>[...xs,{...fixed,id:uid(),status:form.status||'في الخدمة'}]);setForm(empty);setEdit(null);setOpen(false)}function openEdit(e:Employee){setEdit(e);setForm({...empty,...e});setOpen(true)}function openNew(){setEdit(null);setForm({...empty});setOpen(true)}function selectProfile(e:Employee){setProfile(e);setProfileTab('basic')}function importEmployees(file:File){const reader=new FileReader();reader.onload=ev=>{try{const data=new Uint8Array(ev.target?.result as ArrayBuffer);const wb=XLSX.read(data,{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];const rows:any[]=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});if(!rows.length)return alert('الملف لا يحتوي على بيانات');const pick=(r:any,keys:string[])=>{const k=Object.keys(r).find(x=>keys.some(a=>String(x).replace(/\s+/g,'').toLowerCase()===a.replace(/\s+/g,'').toLowerCase()));return k===undefined?'':String(r[k]).trim()};const imported:Employee[]=rows.map((r,i)=>{const code=pick(r,['الرقم_الوظيفي','الرقم الوظيفي','الرقم','الكود','كود الموظف','code','id']);const name=pick(r,['الاسم','اسم الموظف','name']);const nationalId=pick(r,['الرقم_القومي','الرقم القومي','الرقم القومى','nationalid','national_id']);const birth=pick(r,['تاريخ_الميلاد','تاريخ الميلاد','الميلاد','birthdate']);return {id:uid()+i,code,name,department:normalizeDepartment(pick(r,['القسم','الادارة','الإدارة','department'])||'فني'),job:pick(r,['الوظيفة','الوظيفه','job']),grade:pick(r,['الدرجة','الدرجه','grade']),phone:pick(r,['المحمول','رقم المحمول','الهاتف','التليفون','phone']),status:pick(r,['الحالة','status'])||'في الخدمة',nationalId,birthDate:nationalId?birthDateFromNationalId(nationalId):birth,hireDate:pick(r,['تاريخ_التعيين','تاريخ التعيين','التعيين','hiredate']),qualification:pick(r,['المؤهل','المؤهل الدراسي','qualification']),socialStatus:pick(r,['الحالة_الاجتماعية','الحالة الاجتماعية','socialstatus']),address:pick(r,['العنوان','address']),notes:pick(r,['ملاحظات','notes'])}}).filter(x=>x.code||x.name);const byCode=new Map(employees.map(x=>[x.code,x]));let added=0,updated=0;imported.forEach(x=>{if(x.code&&byCode.has(x.code)){const old=byCode.get(x.code)!;byCode.set(x.code,{...old,...x,id:old.id});updated++}else{byCode.set(x.code||String(uid()),x);added++}});setEmployees([...byCode.values()]);alert('تم استيراد '+imported.length+' موظف — تحديث '+updated+' وإضافة '+added)}catch(err){console.error(err);alert('تعذر قراءة ملف الموظفين. تأكد أنه Excel أو CSV وبأن الصف الأول يحتوي أسماء الأعمدة.')}};reader.readAsArrayBuffer(file)}function exportEmployees(){const rows=employees.map(e=>({الرقم_الوظيفي:e.code,الاسم:e.name,القسم:e.department,الوظيفة:e.job,الدرجة:e.grade,الرقم_القومي:e.nationalId||'',تاريخ_الميلاد:e.birthDate||'',السن:ageFromBirthDate(e.birthDate)||'',المحمول:e.phone||'',تاريخ_التعيين:e.hireDate||'',المؤهل:e.qualification||'',الحالة_الاجتماعية:e.socialStatus||'',العنوان:e.address||'',ملاحظات:e.notes||''}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'الموظفين');XLSX.writeFile(wb,'employees-master-data.xlsx')}const year=String(new Date().getFullYear()),month=today().slice(0,7);return <><PageActions title="الموظفين" text="قاعدة بيانات الموظفين والملفات الوظيفية" action="＋ إضافة موظف" onClick={openNew}/><input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)importEmployees(f);e.currentTarget.value=""}}/><button className="view-btn" onClick={()=>importRef.current?.click()}>⬆ استيراد Excel</button> <button className="view-btn" onClick={exportEmployees}>⬇ تصدير كشف الموظفين</button><div className="toolbar"><input placeholder="بحث بالاسم أو الرقم أو الوظيفة أو الدرجة أو الرقم القومي..." value={q} onChange={e=>setQ(e.target.value)}/><select value={dept} onChange={e=>setDept(e.target.value)}><option>الكل</option><option>فني</option><option>تجاري</option><option>نظم</option><option>إداري</option></select><select value={jobFilter} onChange={e=>setJobFilter(e.target.value)}><option value="الكل">كل الوظائف</option>{jobs.map(j=><option key={j} value={j}>{j}</option>)}</select><select value={gradeFilter} onChange={e=>setGradeFilter(e.target.value)}><option value="الكل">كل الدرجات</option>{grades.map(g=><option key={g} value={g}>{g}</option>)}</select><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="الكل">كل الحالات</option>{statuses.map(x=><option key={x} value={x}>{x}</option>)}</select><button className="view-btn" onClick={()=>{setQ('');setDept('الكل');setJobFilter('الكل');setGradeFilter('الكل');setStatusFilter('الكل')}}>مسح الفلاتر</button><span>المعروض: <b>{filtered.length}</b> / {employees.length}</span></div><section className="stats">{['فني','تجاري','نظم','إداري'].map(d=><Stat key={d} icon="👤" label={d} value={employees.filter(e=>e.department===d).length}/>)}</section><section className="panel table-panel"><TableWrap><table><thead><tr><th>الرقم الوظيفي</th><th>الاسم</th><th>الوظيفة</th><th>الدرجة</th><th>الرقم القومي</th><th>الميلاد</th><th>السن</th><th>المحمول</th><th>إجراء</th></tr></thead><tbody>{filtered.length?filtered.map(e=><tr key={e.id}><td>{e.code}</td><td><button className="link-btn" onClick={()=>selectProfile(e)}>{e.name}</button></td><td>{e.job||'—'}</td><td>{e.grade||'—'}</td><td>{e.nationalId||'—'}</td><td>{e.birthDate||'—'}</td><td>{ageFromBirthDate(e.birthDate)||'—'}</td><td>{e.phone||'—'}</td><td><button className="view-btn" onClick={()=>openEdit(e)}>تعديل</button> <button className="danger-btn" onClick={()=>confirm('حذف الموظف؟')&&setEmployees(xs=>xs.filter(x=>x.id!==e.id))}>حذف</button></td></tr>):<EmptyRow col={9} text="لا توجد نتائج."/>}</tbody></table></TableWrap></section>{open&&<Modal title={edit?'تعديل موظف':'إضافة موظف'} close={()=>setOpen(false)}><FormEmployee form={form} setForm={setForm} org={org}/><button className="primary-btn" onClick={save}>حفظ</button></Modal>}{profile&&(()=>{const e=profile,ep=punches.filter(x=>x.code===e.code),el=leaves.filter(x=>x.employeeId===e.id),em=missions.filter(x=>x.employeeId===e.id),pen=penalties.filter(x=>x.employeeId===e.id),mf=medicalFiles.filter(x=>x.employeeId===e.id),mx=medicalExams.filter(x=>x.employeeId===e.id),ml=medicalLeaves.filter(x=>x.employeeId===e.id),td=treatmentDecisions.filter(x=>x.employeeId===e.id),bal=balances.find(x=>x.employeeId===e.id&&String(x.year)===year),monthPunches=ep.filter(x=>x.date.startsWith(month)),presentDays=new Set(monthPunches.map(x=>x.date)).size,approvedLeaveDays=el.filter(x=>x.status==='معتمدة'&&x.to>=year+'-01-01'&&x.from<=year+'-12-31').reduce((a,x)=>a+x.days,0),sickDays=ml.filter(x=>x.to>=year+'-01-01'&&x.from<=year+'-12-31').reduce((a,x)=>a+x.days,0),start=String(settings.start||'08:30'),grace=Number(settings.grace||0),lateAfter=(()=>{const [h,m]=start.split(':').map(Number);const n=h*60+m+grace;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')})(),late=monthPunches.filter(x=>x.time>lateAfter).length,single=monthPunches.filter(x=>ep.filter(y=>y.date===x.date).length===1).length,profileDays=(()=>{const [yy,mm]=month.split('-').map(Number),count=new Date(yy,mm,0).getDate(),holidays=String(settings.holidays||'').split(/[\\n,;]+/).map(x=>normalDate(x.trim())).filter(Boolean),isFriday=(d:string)=>new Date(d+'T00:00:00').getDay()===5;return Array.from({length:count},(_,i)=>{const date=yy+'-'+String(mm).padStart(2,'0')+'-'+String(i+1).padStart(2,'0'),ps=ep.filter(x=>x.date===date).sort((a,b)=>a.time.localeCompare(b.time)),first=ps[0]?.time||'',last=ps.length>1?ps[ps.length-1]?.time||'':'',leave=el.some(l=>l.status==='معتمدة'&&date>=l.from&&date<=l.to),holiday=holidays.includes(date),off=isFriday(date)&&settings.fridayOff,lateFlag=!/ورادى|ورادي/.test(String(e.job||''))&&!!first&&first>lateAfter&&!leave&&!holiday&&!off,mins=lateFlag?(Number(first.slice(0,2))*60+Number(first.slice(3,5))-(Number(lateAfter.slice(0,2))*60+Number(lateAfter.slice(3,5)))):0,status=/ورادى|ورادي/.test(String(e.job||''))?'حاضر':ps.length?'حاضر':leave?'إجازة':holiday?'عطلة رسمية':off?'جمعة':'غياب';return {date,ps,first,last,lateFlag,mins,status}})})(),totalLateMinutes=profileDays.reduce((a,x)=>a+x.mins,0);return <Modal title={'الملف الوظيفي — '+e.name} close={()=>setProfile(null)}><div className="profile-hero">{e.photo?<img className="profile-photo" src={e.photo} alt=""/>:<div className="profile-photo placeholder">👤</div>}<div><h2>{e.name}</h2><p>{e.job||'—'} — {e.department||'—'} — {e.code}</p><span>{e.socialStatus||'الحالة الاجتماعية غير مسجلة'}</span></div></div><div className="toolbar"><span><b>سجل الموظف الموحد</b> — كل البيانات مرتبطة بالرقم الداخلي للموظف</span><button className="view-btn" onClick={()=>{setProfile(null);openEdit(e)}}>✎ تعديل البيانات</button></div><div className="medical-mini"><div><span>الرقم الوظيفي</span><strong>{e.code||'—'}</strong></div><div><span>الوظيفة</span><strong>{e.job||'—'}</strong></div><div><span>الدرجة</span><strong>{e.grade||'—'}</strong></div><div><span>السن</span><strong>{ageFromBirthDate(e.birthDate)||'—'} سنة</strong></div><div><span>أيام الحضور</span><strong>{presentDays}</strong></div><div><span>سجلات البصمة</span><strong>{monthPunches.length}</strong></div><div><span>الإجازات المعتمدة</span><strong>{approvedLeaveDays} يوم</strong></div><div><span>المأموريات</span><strong>{em.length}</strong></div><div><span>الجزاءات</span><strong>{pen.length}</strong></div><div><span>إجازات مرضية</span><strong>{sickDays} يوم</strong></div></div><div className="tabs">{[['basic','البيانات الأساسية'],['attendance','الحضور'],['leaves','الإجازات'],['missions','المأموريات'],['penalties','الجزاءات'],['medical','الخدمات الطبية']].map(([id,label])=><button key={id} className={profileTab===id?'active':''} onClick={()=>setProfileTab(id)}>{label}</button>)}</div>{profileTab==='basic'&&<div className="form-grid"><label>الرقم القومي<input value={e.nationalId||''} readOnly/></label><label>تاريخ الميلاد<input value={e.birthDate||''} readOnly/></label><label>السن<input value={ageFromBirthDate(e.birthDate)||''} readOnly/></label><label>رقم المحمول<input value={e.phone||''} readOnly/></label><label>القسم<input value={e.department||''} readOnly/></label><label>تاريخ التعيين<input value={e.hireDate||''} readOnly/></label><label>المؤهل<input value={e.qualification||''} readOnly/></label><label>الحالة الاجتماعية<input value={e.socialStatus||''} readOnly/></label><label className="full">العنوان<input value={e.address||''} readOnly/></label><label>الزوج/الزوجة<input value={e.spouseName||''} readOnly/></label><label>تاريخ الزواج<input value={e.marriageDate||''} readOnly/></label><label className="full">الأبناء<textarea value={e.children||''} readOnly/></label><label className="full">ملاحظات<textarea value={e.notes||''} readOnly/></label></div>}{profileTab==='attendance'&&<><div className="medical-mini"><div><span>أيام الحضور</span><strong>{presentDays}</strong></div><div><span>سجلات الشهر</span><strong>{monthPunches.length}</strong></div><div><span>بصمة واحدة</span><strong>{single}</strong></div><div><span>تأخير</span><strong>{late}</strong></div></div><TableWrap><table><thead><tr><th>التاريخ</th><th>الحالة</th><th>أول بصمة</th><th>آخر بصمة</th><th>عدد البصمات</th><th>التأخير</th></tr></thead><tbody>{profileDays.map(x=><tr key={x.date}><td>{x.date}</td><td>{x.status}</td><td>{x.first||'—'}</td><td>{x.last||'—'}</td><td>{x.ps.length||'—'}</td><td>{x.lateFlag?String(x.mins)+' دقيقة':'—'}</td></tr>)}</tbody></table><div className="medical-mini"><div><span>أيام الحضور</span><strong>{presentDays}</strong></div><div><span>غياب</span><strong>{profileDays.filter(x=>x.status==='غياب').length}</strong></div><div><span>إجازات</span><strong>{profileDays.filter(x=>x.status==='إجازة').length}</strong></div><div><span>بصمة واحدة</span><strong>{profileDays.filter(x=>x.ps.length===1).length}</strong></div><div><span>مرات التأخير</span><strong>{profileDays.filter(x=>x.lateFlag).length}</strong></div><div><span>دقائق التأخير</span><strong>{totalLateMinutes}</strong></div></div></TableWrap></>}{profileTab==='leaves'&&<TableWrap><table><thead><tr><th>من</th><th>إلى</th><th>الأيام</th><th>النوع</th><th>الحالة</th></tr></thead><tbody>{el.map(x=><tr key={x.id}><td>{x.from}</td><td>{x.to}</td><td>{x.days}</td><td>{x.type}</td><td>{x.status}</td></tr>)}</tbody></table><div className="medical-mini"><div><span>الرصيد السنوي</span><strong>{bal?.annual??'—'}</strong></div><div><span>الرصيد العارض</span><strong>{bal?.casual??'—'}</strong></div></div></TableWrap>}{profileTab==='missions'&&<TableWrap><table><thead><tr><th>من</th><th>إلى</th><th>الجهة</th><th>الغرض</th><th>الحالة</th></tr></thead><tbody>{em.map(x=><tr key={x.id}><td>{x.from}</td><td>{x.to}</td><td>{x.destination}</td><td>{x.purpose}</td><td>{x.status}</td></tr>)}</tbody></table></TableWrap>}{profileTab==='penalties'&&<TableWrap><table><thead><tr><th>التاريخ</th><th>النوع</th><th>أيام الخصم</th><th>ملاحظات</th></tr></thead><tbody>{pen.map(x=><tr key={x.id}><td>{x.date}</td><td>{x.type}</td><td>{x.days}</td><td>{x.note}</td></tr>)}</tbody></table></TableWrap>}{profileTab==='medical'&&<><div className="medical-mini"><div><span>ملفات طبية</span><strong>{mf.length}</strong></div><div><span>فحوصات</span><strong>{mx.length}</strong></div><div><span>إجازات مرضية</span><strong>{ml.length}</strong></div><div><span>قرارات علاج</span><strong>{td.length}</strong></div></div><TableWrap><table><thead><tr><th>قرار العلاج</th><th>من</th><th>إلى</th><th>الحالة</th></tr></thead><tbody>{td.map(x=><tr key={x.id}><td>{x.decisionNo}</td><td>{x.startDate}</td><td>{x.endDate}</td><td>{x.status}</td></tr>)}</tbody></table></TableWrap></>}</Modal>})()}</>}
 function Stat({icon,label,value,onClick}:{icon:string;label:string;value:string|number;onClick?:()=>void}){return <div className="stat-card" onClick={onClick} style={onClick?{cursor:'pointer'}:undefined}><div className="stat-icon blue">{icon}</div><div><span>{label}</span><strong>{value}</strong></div></div>}
@@ -221,108 +257,132 @@ function Organization({org,setOrg,employees}:{org:any;setOrg:Dispatch<SetStateAc
  const [value,setValue]=useState('');
  const [editValue,setEditValue]=useState('');
  const [editing,setEditing]=useState('');
- const [view,setView]=useState<'tree'|'lists'>('lists');
+ const [view,setView]=useState<'tree'|'lists'>('tree');
  const [q,setQ]=useState('');
 
- const nextType=(t:string)=>typeOrder[typeOrder.indexOf(t)+1]||'';
+ const nextType=(t:string)=>{const i=typeOrder.indexOf(t);return i>=0?typeOrder[i+1]||'':''};
  const parents=org?.parents||{};
- const list=Array.isArray(org?.[type])?org[type]:[];
- const parentType=typeOrder[Math.max(0,typeOrder.indexOf(type)-1)]||'';
- const parentOptions=parentType?(Array.isArray(org?.[parentType])?org[parentType]:[]):[];
+ const getList=(t:string)=>Array.isArray(org?.[t])?org[t]:[];
+ const parentType=(t:string)=>{const i=typeOrder.indexOf(t);return i>0?typeOrder[i-1]:''};
+ const getChildren=(t:string,parent:string)=>getList(t).filter((x:string)=>(parents[t]||{})[x]===parent);
+ const employeeCount=(x:string)=>employees.filter(e=>[e.company,e.sector,e.engineering,e.department,e.subDepartment,e.job].includes(x)).length;
 
- function persist(updater:(o:any)=>any){setOrg((o:any)=>updater({...o}))}
+ useEffect(()=>{localStorage.setItem('hr_org_structure',JSON.stringify(org))},[org]);
+
+ function chooseLevel(t:string,p:string=''){setType(t);setParentValue(p);setValue('');setEditing('');setEditValue('');setView('lists')}
  function add(){
    const v=value.trim();
-   if(!v)return;
-   if(type!=='companies'&&!parentValue){alert('اختار البند الأب أولاً.');return}
-   if(list.includes(v)&&(!parents[type]||parents[type][v]===parentValue)){alert('هذا البند موجود بالفعل.');return}
-   persist(o=>{
-     const arr=Array.isArray(o[type])?o[type]:[];
-     const out={...o,[type]:arr.includes(v)?arr:[...arr,v],parents:{...(o.parents||{})}};
-     if(type!=='companies')out.parents[type]={...(o.parents?.[type]||{}),[v]:parentValue};
+   if(!v)return alert('اكتب اسم البند أولاً.');
+   const p=parentType(type)?parentValue:'';
+   if(parentType(type)&&!p)return alert('اختار البند الأب أولاً.');
+   const arr=getList(type);
+   const sameName=arr.includes(v);
+   if(sameName)return alert('اسم البند مستخدم بالفعل. استخدم اسمًا مميزًا.');
+   setOrg((o:any)=>{
+     const out={...o,parents:{...(o.parents||{})}};
+     out[type]=[...(Array.isArray(o[type])?o[type]:[]),v];
+     if(p)out.parents[type]={...(o.parents?.[type]||{}),[v]:p};
      return out;
    });
-   setValue('');
    const nt=nextType(type);
-   if(nt){setType(nt);setParentValue(v);setView('lists');}
-   else {setParentValue(v);setView('tree');}
+   setValue('');
+   if(nt){chooseLevel(nt,v)}else{setView('tree')}
  }
- function addUnder(itemType:string,item:string){
-   const nt=nextType(itemType);
-   if(!nt){alert('الوظيفة هي آخر مستوى في الهيكل.');return}
-   setType(nt);setParentValue(item);setValue('');setEditing('');setView('lists');
- }
+ function addUnder(t:string,item:string){const nt=nextType(t);if(!nt)return alert('الوظيفة هي آخر مستوى في الهيكل.');chooseLevel(nt,item)}
  function beginEdit(v:string){setEditing(v);setEditValue(v)}
  function saveEdit(){
    const v=editValue.trim();
    if(!editing||!v)return;
-   persist(o=>{
-     const arr=(o[ type ]||[]).map((x:string)=>x===editing?v:x);
-     const out={...o,[type]:arr,parents:{...(o.parents||{})}};
-     if(type!=='companies'&&out.parents[type]?.[editing]!==undefined){
-       out.parents[type]={...(out.parents[type]||{})};
-       out.parents[type][v]=out.parents[type][editing];
+   if(v!==editing&&getList(type).includes(v))return alert('اسم البند مستخدم بالفعل.');
+   setOrg((o:any)=>{
+     const out={...o,parents:{...(o.parents||{})}};
+     out[type]=(o[type]||[]).map((x:string)=>x===editing?v:x);
+     if(out.parents[type]?.[editing]!==undefined){
+       out.parents[type]={...(out.parents[type]||{}),[v]:out.parents[type][editing]};
        delete out.parents[type][editing];
      }
-     return out;
-   });
-   setEditing('');setEditValue('');
- }
- function remove(v:string){
-   if(!confirm('حذف '+v+'؟'))return;
-   persist(o=>{
-     const out={...o,[type]:(o[type]||[]).filter((x:string)=>x!==v),parents:{...(o.parents||{})}};
-     if(out.parents[type]){out.parents[type]={...(out.parents[type]||{})};delete out.parents[type][v];}
      const nt=nextType(type);
      if(nt&&out.parents[nt]){
        out.parents[nt]={...(out.parents[nt]||{})};
-       Object.keys(out.parents[nt]).forEach(k=>{if(out.parents[nt][k]===v)delete out.parents[nt][k]});
+       Object.keys(out.parents[nt]).forEach(k=>{if(out.parents[nt][k]===editing)out.parents[nt][k]=v});
      }
      return out;
    });
+   if(parentValue===editing)setParentValue(v);
+   setEditing('');setEditValue('');
  }
- const visibleList=parentValue&&type!=='companies'
-   ?list.filter((x:string)=>(parents[type]||{})[x]===parentValue)
-   :list.filter((x:string)=>type==='companies'||!(parents[type]||{})[x]);
- const filteredEmployees=employees.filter(e=>(e.name+' '+e.code+' '+e.department+' '+e.job+' '+(e.subDepartment||'')).toLowerCase().includes(q.toLowerCase()));
- const employeeMatches=(x:string)=>filteredEmployees.some(e=>[e.company,e.sector,e.engineering,e.department,e.subDepartment,e.job].includes(x));
-
+ function remove(v:string){
+   const nt=nextType(type);
+   const children=nt?getChildren(nt,v):[];
+   if(children.length)return alert('لا يمكن حذف هذا البند الآن لأنه يحتوي على عناصر تحته. احذف أو انقل العناصر التابعة أولاً.');
+   if(!confirm('حذف '+v+'؟'))return;
+   setOrg((o:any)=>{
+     const out={...o,parents:{...(o.parents||{})}};
+     out[type]=(o[type]||[]).filter((x:string)=>x!==v);
+     if(out.parents[type]){out.parents[type]={...(out.parents[type]||{})};delete out.parents[type][v]}
+     return out;
+   });
+   if(parentValue===v)setParentValue('');
+ }
+ function matchesQuery(t:string,x:string){
+   if(!q.trim())return true;
+   const needle=q.trim().toLowerCase();
+   if(x.toLowerCase().includes(needle))return true;
+   return employees.some(e=>([e.name,e.code,e.company,e.sector,e.engineering,e.department,e.subDepartment,e.job].filter(Boolean).join(' ')).toLowerCase().includes(needle)
+     && [e.company,e.sector,e.engineering,e.department,e.subDepartment,e.job].includes(x));
+ }
+ function branchMatches(t:string,x:string):boolean{
+   if(!q.trim())return true;
+   if(matchesQuery(t,x))return true;
+   const nt=nextType(t);
+   return !!nt&&getChildren(nt,x).some(child=>branchMatches(nt,child));
+ }
  function TreeLevel({t,parent}:{t:string;parent?:string}){
-   const rawItems=Array.isArray(org?.[t])?org[t]:[];
-   const items=rawItems.filter((x:string)=>!parent || (org?.parents?.[t]||{})[x]===parent);
-
+   const items=getList(t).filter((x:string)=>!parent || (parents[t]||{})[x]===parent).filter((x:string)=>branchMatches(t,x));
    if(!items.length)return null;
    const nt=nextType(t);
    return <div className="org-tree-level">{items.map((x:string)=><div className="org-node" key={t+'-'+x}>
-     <div className="org-node-card"><span>{icons[t]} {x}</span><div className="org-node-actions"><small>{employees.filter(e=>[e.company,e.sector,e.engineering,e.department,e.subDepartment,e.job].includes(x)).length} موظف</small>{nt&&<button className="view-btn" onClick={()=>addUnder(t,x)}>＋ إضافة تحتها</button>}</div></div>
+     <div className="org-node-card">
+       <span>{icons[t]} {x}</span>
+       <div className="org-node-actions">
+         <small>{employeeCount(x)} موظف</small>
+         <button className="view-btn" onClick={()=>chooseLevel(t,x)}>⚙️ إدارة ما تحتها</button>
+         {nt&&<button className="view-btn" onClick={()=>addUnder(t,x)}>＋ إضافة تحتها</button>}
+       </div>
+     </div>
      {nt&&<TreeLevel t={nt} parent={x}/>}
    </div>)}</div>
  }
- return <><PageActions title="الهيكل التنظيمي" text="الهيكل أصبح هرميًا: كل بند له أب، وبمجرد إضافته تنتقل تلقائيًا لإضافة المستوى الذي تحته." action="" onClick={()=>setView('lists')}/>
+ const currentList=getList(type);
+ const pType=parentType(type);
+ const parentOptions=pType?getList(pType):[];
+ const visibleList=pType&&parentValue?currentList.filter((x:string)=>(parents[type]||{})[x]===parentValue):pType?currentList.filter((x:string)=>!((parents[type]||{})[x])):currentList;
+
+ return <><PageActions title="الهيكل التنظيمي" text="هيكل هرمي مترابط: شركة ← قطاع ← هندسة ← قسم ← قسم فرعي ← وظيفة. كل مستوى مرتبط بالأب الحقيقي، وأي بند يمكن فتح وإضافة المستوى الذي تحته مباشرة." action="＋ إضافة شركة" onClick={()=>chooseLevel('companies')}/>
  <section className="panel">
    <div className="toolbar">
      <button className={view==='tree'?'primary-btn':'view-btn'} onClick={()=>setView('tree')}>🌳 عرض الهيكل</button>
      <button className={view==='lists'?'primary-btn':'view-btn'} onClick={()=>setView('lists')}>⚙️ إدارة الهيكل</button>
-     {view==='tree'&&<input value={q} onChange={e=>setQ(e.target.value)} placeholder="بحث في الموظفين أو الأقسام أو الوظائف..."/>}
+     {view==='tree'&&<input value={q} onChange={e=>setQ(e.target.value)} placeholder="ابحث باسم بند أو موظف أو كود..."/>}
    </div>
  </section>
  {view==='tree'
-   ?<section className="panel"><div className="org-tree"><TreeLevel t="companies"/>{q&&filteredEmployees.length===0&&<div className="table-empty">لا توجد نتائج للبحث.</div>}</div></section>
+   ?<section className="panel"><div className="org-tree"><TreeLevel t="companies"/>{q&&getList('companies').every((x:string)=>!branchMatches('companies',x))&&<div className="table-empty">لا توجد نتائج مطابقة.</div>}</div></section>
    :<section className="panel">
       <div className="toolbar">
-        <select value={type} onChange={e=>{setType(e.target.value);setParentValue('');setEditing('')}}>{typeOrder.map(k=><option key={k} value={k}>{icons[k]} {labels[k]}</option>)}</select>
-        {type!=='companies'&&<select value={parentValue} onChange={e=>setParentValue(e.target.value)}><option value="">اختر البند الأب</option>{parentOptions.map((x:string)=><option key={x} value={x}>{x}</option>)}</select>}
+        <select value={type} onChange={e=>chooseLevel(e.target.value)}>{typeOrder.map(k=><option key={k} value={k}>{icons[k]} {labels[k]}</option>)}</select>
+        {pType&&<select value={parentValue} onChange={e=>setParentValue(e.target.value)}><option value="">اختر البند الأب</option>{parentOptions.map((x:string)=><option key={x} value={x}>{x}</option>)}</select>}
         <input value={value} onChange={e=>setValue(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')add()}} placeholder={type==='companies'?'إضافة شركة':parentValue?'إضافة '+labels[type]+' تحت «'+parentValue+'»':'اختر الأب ثم أضف '+labels[type]}/>
         <button className="primary-btn" onClick={add}>＋ إضافة</button>
       </div>
-      <div className="notice">بعد إضافة أي بند، النظام يختار تلقائيًا المستوى التالي ويضع البند الجديد كـ «الأب»؛ ويمكنك أيضًا الضغط على <strong>＋ إضافة تحتها</strong> من أي صف.</div>
+      <div className="notice">لا يمكن إنشاء مستوى تابع بدون أب. بعد الإضافة ينتقل النظام تلقائيًا للمستوى التالي ويضع العنصر الجديد كأب. من الشجرة يمكنك أيضًا فتح «إدارة ما تحتها» أو «＋ إضافة تحتها».</div>
       <TableWrap><table><thead><tr><th>المكون</th><th>الأب</th><th>عدد الموظفين</th><th>إجراء</th></tr></thead><tbody>
         {visibleList.map((x:string)=><tr key={x}>
           {editing===x
-            ?<><td><input autoFocus value={editValue} onChange={e=>setEditValue(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')setEditing('')}}/></td><td>{type==='companies'?'—':(parents[type]||{})[x]||'—'}</td><td>{employees.filter(e=>[e.department,e.job,e.company,e.sector,e.engineering,e.subDepartment].includes(x)).length}</td><td><button className="primary-btn" onClick={saveEdit}>حفظ</button> <button className="view-btn" onClick={()=>setEditing('')}>إلغاء</button></td></>
-            :<><td><strong>{x}</strong></td><td>{type==='companies'?'—':(parents[type]||{})[x]||'—'}</td><td>{employees.filter(e=>[e.department,e.job,e.company,e.sector,e.engineering,e.subDepartment].includes(x)).length}</td><td><button className="primary-btn" onClick={()=>addUnder(type,x)} disabled={!nextType(type)}>＋ إضافة تحتها</button> <button className="view-btn" onClick={()=>beginEdit(x)}>✏️ تعديل</button> <button className="danger-btn" onClick={()=>remove(x)}>حذف</button></td></>}
+            ?<><td><input autoFocus value={editValue} onChange={e=>setEditValue(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')setEditing('')}}/></td><td>{pType?(parents[type]||{})[x]||'—':'—'}</td><td>{employeeCount(x)}</td><td><button className="primary-btn" onClick={saveEdit}>حفظ</button> <button className="view-btn" onClick={()=>setEditing('')}>إلغاء</button></td></>
+            :<><td><strong>{x}</strong></td><td>{pType?(parents[type]||{})[x]||'—':'—'}</td><td>{employeeCount(x)}</td><td><button className="primary-btn" onClick={()=>addUnder(type,x)} disabled={!nextType(type)}>＋ إضافة تحتها</button> <button className="view-btn" onClick={()=>chooseLevel(type,x)}>⚙️ إدارة ما تحتها</button> <button className="view-btn" onClick={()=>beginEdit(x)}>✏️ تعديل</button> <button className="danger-btn" onClick={()=>remove(x)}>حذف</button></td></>}
         </tr>)}
-        {!visibleList.length&&<EmptyRow col={4} text={type==='companies'?'لا توجد شركات. اختر المستوى وأضف أول بند.':'لا توجد عناصر تحت هذا الأب؛ أضف أول عنصر الآن.'}/>}
+        {!visibleList.length&&<EmptyRow col={4} text={pType&&!parentValue?'اختر الأب لعرض العناصر التابعة.':'لا توجد عناصر هنا؛ أضف أول عنصر.'}/>}
       </tbody></table></TableWrap>
     </section>}
  </>}
