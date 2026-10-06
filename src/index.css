@@ -1,0 +1,21 @@
+:root {
+  font-family: Tahoma, 'Segoe UI', Arial, sans-serif;
+  color: #172033;
+  background: #f4f7fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; }
+html { background: #f4f7fb; }
+body { margin: 0; min-width: 320px; background: #f4f7fb; }
+button, input, select, textarea { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+#root { width: 100%; min-height: 100vh; margin: 0; text-align: right; }
+h1, h2, h3, h4, p { margin-top: 0; }
+h1, h2, h3, h4 { color: #172033; }
+a { color: inherit; }
