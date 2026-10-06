@@ -119,8 +119,9 @@ function App(){
    const pSet=new Set(out[pLevel]);
    const old=out.parents[level]&&typeof out.parents[level]==='object'?out.parents[level]:{};
    const clean:any={};
-   out[level].forEach((item:string)=>{
-     if(old[item]&&pSet.has(old[item]))clean[item]=old[item];
+   out[level].forEach((item:string,idx:number)=>{
+     if(old[item]&&pSet.has(old[item])) clean[item]=old[item];
+     else if(out[pLevel].length) clean[item]=out[pLevel][idx%out[pLevel].length];
    });
    out.parents[level]=clean;
  });
