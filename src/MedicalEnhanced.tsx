@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+function uiNotify(message:string,type:'success'|'error'|'warning'|'info'='info'){window.dispatchEvent(new CustomEvent('hr-ui-toast',{detail:{message,type}}))}
 type Employee={id:number;code:string;name:string;department:string;job:string;grade?:string;phone:string;status:string;company?:string;sector?:string;engineering?:string;subDepartment?:string;nationalId?:string}
 type Org={companies?:string[];sectors?:string[];engineerings?:string[];departments?:string[];subDepartments?:string[];jobs?:string[];parents?:Record<string,Record<string,string>>}
 type MedicalFile={id:number;employeeId:number;diagnosis:string;doctor:string;hospital:string;notes:string}
