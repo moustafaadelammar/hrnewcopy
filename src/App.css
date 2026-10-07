@@ -242,3 +242,11 @@ a:focus-visible{outline:3px solid var(--ui-focus);outline-offset:3px;border-radi
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* Confirmation dialog / destructive interaction */
+.confirm-dialog{display:flex;gap:14px;align-items:flex-start;padding:8px 2px 18px}
+.confirm-icon{width:44px;height:44px;flex:0 0 44px;border-radius:50%;display:grid;place-items:center;background:var(--ui-primary-soft);color:var(--ui-primary-dark);font-size:22px;font-weight:800}
+.confirm-dialog h3{margin:2px 0 6px;font-size:17px}
+.confirm-dialog p{margin:0;color:var(--ui-muted);line-height:1.7}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center}
+.modal-actions .ui-spinner{display:inline-block;margin-left:6px}
